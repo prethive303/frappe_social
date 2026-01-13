@@ -1,0 +1,256 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Select Account{% endblock %}
+
+{% block page_content %}
+<div class="container" style="max-width: 600px; margin-top: 50px;">
+    <div class="card">
+        <div class="card-header">
+            <h4 class="mb-0">Connect <span id="platform-name">Account</span></h4>
+        </div>
+        <div class="card-body">
+            <div id="authorized-by" class="alert alert-info d-none mb-3">
+                <strong>Logged in as:</strong> <span id="auth-user-name"></span>
+                <br><small class="text-muted">To use a different account, log out of Facebook first and try
+                    again.</small>
+            </div>
+
+            <p class="text-muted">Select which page(s) you want to connect:</p>
+
+            <div id="loading" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Loading available pages...</p>
+            </div>
+
+            <div id="pages-list" class="d-none"></div>
+
+            <div id="error-message" class="alert alert-danger d-none"></div>
+
+            <div id="action-buttons" class="mt-4 d-none">
+                <button id="connect-selected" class="btn btn-primary" disabled>
+                    Connect Selected
+                </button>
+                <button id="select-all" class="btn btn-secondary ml-2">
+                    Select All
+                </button>
+                <a href="/app/social-integration" class="btn btn-light ml-2">Cancel</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-3">
+        <small class="text-muted">
+            Want to connect a different account?
+            <a href="#" id="use-different-account">Log out of Facebook and try again</a>
+        </small>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    $(document).ready(function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionKey = urlParams.get('session');
+        const platform = urlParams.get('platform');
+
+        if (!sessionKey) {
+            showError('Invalid session. Please try connecting again.');
+            return;
+        }
+
+        $('#platform-name').text(platform || 'Account');
+
+        // Fetch available pages
+        frappe.call({
+            method: 'frappe_social.frappe_social.api.oauth.get_available_pages',
+            args: { session_key: sessionKey },
+            callback: function (r) {
+                $('#loading').addClass('d-none');
+
+                if (r.message && r.message.pages) {
+                    // Show authorized user
+                    if (r.message.authorized_by) {
+                        $('#auth-user-name').text(r.message.authorized_by);
+                        $('#authorized-by').removeClass('d-none');
+                    }
+
+                    renderPages(r.message.pages, r.message.platform);
+                    $('#action-buttons').removeClass('d-none');
+                } else {
+                    showError('No accounts found.');
+                }
+            },
+            error: function (r) {
+                $('#loading').addClass('d-none');
+                showError(r.message || 'Session expired. Please try connecting again.');
+            }
+        });
+
+        function renderPages(pages, platform) {
+            const container = $('#pages-list');
+            container.empty().removeClass('d-none');
+
+            pages.forEach(function (page) {
+                const isDisabled = page.already_connected ? 'disabled' : '';
+                const badge = page.already_connected
+                    ? '<span class="badge badge-success ml-2">Already Connected</span>'
+                    : '';
+
+                const html = `
+                <div class="page-item card mb-2 ${isDisabled}" data-index="${page.index}">
+                    <div class="card-body p-3 d-flex align-items-center">
+                        <input type="checkbox" class="page-checkbox mr-3" 
+                               data-index="${page.index}" ${isDisabled} 
+                               style="width: 20px; height: 20px;">
+                        <img src="${page.picture || '/assets/frappe/images/default-avatar.png'}" 
+                             class="rounded-circle mr-3" 
+                             style="width: 50px; height: 50px; object-fit: cover;" 
+                             onerror="this.src='/assets/frappe/images/default-avatar.png'">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0">${page.name} ${badge}</h6>
+                            <small class="text-muted">
+                                ${page.category ? page.category + ' • ' : ''}
+                                ${page.followers ? page.followers.toLocaleString() + ' followers' : ''}
+                            </small>
+                            ${platform === 'Instagram' && page.page_name ? '<br><small class="text-muted">Linked to: ' + page.page_name + '</small>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+                container.append(html);
+            });
+
+            // Handle checkbox changes
+            $('.page-checkbox').on('change', function () {
+                updateConnectButton();
+            });
+
+            // Make entire card clickable
+            $('.page-item:not(.disabled)').on('click', function (e) {
+                if (!$(e.target).is('input')) {
+                    const checkbox = $(this).find('.page-checkbox');
+                    checkbox.prop('checked', !checkbox.prop('checked')).trigger('change');
+                }
+            });
+        }
+
+        function updateConnectButton() {
+            const checked = $('.page-checkbox:checked:not(:disabled)').length;
+            const total = $('.page-checkbox:not(:disabled)').length;
+
+            $('#connect-selected').prop('disabled', checked === 0);
+
+            if (checked === 0) {
+                $('#connect-selected').text('Connect Selected');
+            } else if (checked === 1) {
+                $('#connect-selected').text('Connect 1 Page');
+            } else {
+                $('#connect-selected').text(`Connect ${checked} Pages`);
+            }
+
+            // Update select all button
+            if (checked === total) {
+                $('#select-all').text('Deselect All');
+            } else {
+                $('#select-all').text('Select All');
+            }
+        }
+
+        function showError(message) {
+            $('#error-message').text(message).removeClass('d-none');
+        }
+
+        // Select/Deselect All
+        $('#select-all').on('click', function () {
+            const checkboxes = $('.page-checkbox:not(:disabled)');
+            const allChecked = checkboxes.filter(':checked').length === checkboxes.length;
+            checkboxes.prop('checked', !allChecked).trigger('change');
+        });
+
+        $('#connect-selected').on('click', function () {
+            const selected = [];
+            $('.page-checkbox:checked:not(:disabled)').each(function () {
+                selected.push($(this).data('index'));
+            });
+
+            if (selected.length === 0) return;
+
+            $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm mr-2"></span>Connecting...');
+
+            let connectedCount = 0;
+            let errors = 0;
+            function connectNext() {
+                if (selected.length === 0) {
+                    // All done
+                    let msg = `Connected ${connectedCount} page(s)`;
+                    if (errors > 0) msg += ` (${errors} failed/skipped)`;
+                    frappe.show_alert({ message: msg, indicator: 'green' });
+                    setTimeout(() => {
+                        window.location.href = '/app/social-integration';
+                    }, 1500);
+                    return;
+                }
+                const index = selected.shift();
+                frappe.call({
+                    method: 'frappe_social.frappe_social.api.oauth.connect_page',
+                    args: {
+                        session_key: sessionKey,
+                        page_index: index
+                    },
+                    callback: function (r) {
+                        if (r.message) connectedCount++;
+                        connectNext();
+                    },
+                    error: function () {
+                        errors++;
+                        connectNext();
+                    }
+                });
+            }
+            connectNext();
+        });
+
+        // Use different account link
+        $('#use-different-account').on('click', function (e) {
+            e.preventDefault();
+            frappe.msgprint({
+                title: __('Use Different Account'),
+                message: __('To connect a different Facebook account:<br><br>' +
+                    '1. Open <a href="https://facebook.com" target="_blank">facebook.com</a> in a new tab<br>' +
+                    '2. Log out of your current Facebook account<br>' +
+                    '3. Come back here and click "Connect Account" again<br>' +
+                    '4. Log in with your other Facebook account'),
+                indicator: 'blue'
+            });
+        });
+    });
+</script>
+
+<style>
+    .page-item {
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+    }
+
+    .page-item:hover:not(.disabled) {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+    }
+
+    .page-item.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .page-checkbox:disabled {
+        cursor: not-allowed;
+    }
+
+    .page-item:has(.page-checkbox:checked) {
+        border-color: #5e64ff;
+        background-color: #f8f9ff;
+    }
+</style>
+{% endblock %}
