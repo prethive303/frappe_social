@@ -34,7 +34,7 @@ A comprehensive social media scheduling and analytics module for Frappe/ERPNext.
 
 ```bash
 # Get the app
-bench get-app https://github.com/macrobian88/frappe-social-media-scheduler.git
+bench get-app https://github.com/prethive303/frappe_social.git
 
 # Install on your site
 bench --site your-site.local install-app frappe_social
@@ -51,7 +51,7 @@ pip install -r requirements.txt
 
 ```bash
 cd frappe-bench/apps
-git clone https://github.com/macrobian88/frappe-social-media-scheduler.git frappe_social
+git clone https://github.com/prethive303/frappe_social.git
 cd frappe_social
 pip install -r requirements.txt
 cd ../..
@@ -231,7 +231,7 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Support
 
-- GitHub Issues: [Report bugs or request features](https://github.com/macrobian88/frappe-social-media-scheduler/issues)
+- GitHub Issues: [Report bugs or request features](https://github.com/prithive303/frappe_social/issues)
 
 ## Changelog
 
