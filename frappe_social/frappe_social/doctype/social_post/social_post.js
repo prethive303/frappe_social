@@ -64,9 +64,9 @@ frappe.ui.form.on('Social Post', {
             }, __('Actions'));
         }
 
-        // if (frm.doc.link && !frm.doc.url_build) {
-        //     auto_build_utm(frm);
-        // }
+        if (frm.doc.link && !frm.doc.url_build) {
+            auto_build_utm(frm);
+        }
 
         let checked = 0;
         if (frm.doc.is_post) checked++;
@@ -396,12 +396,12 @@ frappe.ui.form.on('Social Post', {
         apply_filters(frm);
         update_account_details(frm);
         update_character_count(frm);
-        // auto_build_utm(frm);
+        auto_build_utm(frm);
     },
 
-    // link: function (frm) {
-    //     auto_build_utm(frm)
-    // },
+    link: function (frm) {
+        auto_build_utm(frm)
+    },
 
     account: function (frm) {
         update_account_details(frm);
