@@ -115,7 +115,6 @@ class PostService:
             post.db_set(
                 {
                     "post_id": result.post_id,
-                    "published_time": now_datetime(),
                     "status": "Published",
                     "error_log": None,
                 }
