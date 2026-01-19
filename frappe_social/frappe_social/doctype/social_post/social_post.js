@@ -868,10 +868,10 @@ function auto_build_utm_url(frm) {
         }
 
         // Add UTM parameters
-        if (utm_source) url.searchParams.set('utm_source', utm_source);
-        if (utm_medium) url.searchParams.set('utm_medium', utm_medium);
-        if (utm_campaign) url.searchParams.set('utm_campaign', utm_campaign);
-        if (utm_postname) url.searchParams.set('utm_postname', utm_postname);
+        if (utm_source) url.searchParams.set('utm_wsource', utm_source);
+        if (utm_medium) url.searchParams.set('utm_wmedium', utm_medium);
+        if (utm_campaign) url.searchParams.set('utm_wcampaign', utm_campaign);
+        if (utm_postname) url.searchParams.set('utm_wpostname', utm_postname);
 
         const built_url = url.toString();
 
