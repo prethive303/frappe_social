@@ -81,18 +81,16 @@ def _get_auth_url(platform: str, settings, redirect_uri: str, state: str) -> str
 
     elif platform in ["Instagram", "Facebook"]:
         scopes = [
+            "public_profile",
             "pages_show_list",
             "pages_read_engagement",
             "pages_manage_posts",
-            "pages_read_user_content",
-            "business_management",
-            "email",
-            "public_profile",
-            "ads_management",
-            "ads_read",
+            "pages_manage_engagement",
+            "read_insights",
+            
         ]
         if platform == "Instagram":
-            scopes.extend(["instagram_basic", "instagram_content_publish", "instagram_manage_insights"])
+            scopes.extend(["instagram_basic", "instagram_content_publish", "instagram_manage_insights", "instagram_manage_comments"])
         params = {
             "client_id": settings.meta_app_id,
             "redirect_uri": redirect_uri,
@@ -306,11 +304,17 @@ def _handle_meta_callback(platform: str):
     pages = (
         requests.get(
             f"https://graph.facebook.com/{api_version}/me/accounts",
-            params={"access_token": user_token, "fields": "id,name,access_token,picture{url},fan_count"},
+            params={"access_token": user_token, "fields": "id,name,tasks,access_token,picture{url},fan_count"},
         )
         .json()
         .get("data", [])
     )
+    
+    approved_pages = [
+        page for page in pages
+        if page.get("tasks")
+    ]
+
 
     if not pages:
         return _oauth_error_redirect("No Facebook Pages found. Create a Page first.")
@@ -335,111 +339,212 @@ def _handle_meta_callback(platform: str):
                         "instagram_id": ig["id"],
                         "instagram_username": ig.get("username", ""),
                         "followers_count": ig.get("followers_count", 0),
+                        "profile_picture_url": ig.get("profile_picture_url", ""),
                     }
                 )
         if not ig_pages:
             return _oauth_error_redirect("No Instagram Business accounts found.")
         pages = ig_pages
 
-    # Store session for page selection
-    session_key = secrets.token_urlsafe(32)
-    frappe.cache().set_value(
-        f"meta_pages_{session_key}",
-        {
-            "platform": platform,
-            "user": cache_data["user"],
-            "user_access_token": user_token,
-            "expires_in": expires_in,
-            "pages": pages,
-            "auth_user_id": me_data.get("id"),
-            "auth_user_name": me_data.get("name"),
-            "account_name": cache_data.get("account_name"),
-            "account_description": cache_data.get("account_description"),
-            "organization": cache_data.get("organization"),
-        },
-        expires_in_sec=600,
-    )
+    # # Store session for page selection
+    # session_key = secrets.token_urlsafe(32)
+    # frappe.cache().set_value(
+    #     f"meta_pages_{session_key}",
+    #     {
+    #         "platform": platform,
+    #         "user": cache_data["user"],
+    #         "user_access_token": user_token,
+    #         "expires_in": expires_in,
+    #         "pages": pages,
+    #         "auth_user_id": me_data.get("id"),
+    #         "auth_user_name": me_data.get("name"),
+    #         "account_name": cache_data.get("account_name"),
+    #         "account_description": cache_data.get("account_description"),
+    #         "organization": cache_data.get("organization"),
+    #     },
+    #     expires_in_sec=600,
+    # )
 
+    # frappe.cache().delete_value(f"oauth_state_{state}")
+
+    # # Single page - connect directly
+    # if len(pages) == 1:
+    #     frappe.set_user(cache_data["user"])
+    #     return _connect_meta_page(session_key, 0)
+
+    # # Multiple pages - redirect to selection
+    # frappe.local.response.update(
+    #     {"type": "redirect", "location": f"/select-social-page?session={session_key}&platform={platform}"}
+    # )
+    # frappe.set_user(cache_data["user"])
+
+    # for page in approved_pages:
+    #     if platform == "Instagram":
+    #         _save_integration(
+    #             platform=platform,
+    #             profile_id=page["instagram_id"],
+    #             profile_name=page["instagram_username"],
+    #             access_token=user_token,
+    #             expires_in=expires_in,
+    #             page_id=page["page_id"],
+    #             page_access_token=page["page_access_token"],
+    #             profile_image=page.get("profile_picture_url"),
+    #             # account_type="Business",
+    #             authorized_user_id=me_data.get("id"),
+    #             authorized_user_name=me_data.get("name"),
+    #             authorized_user_email=me_data.get("email"),
+    #             followers_count=page.get("followers_count", 0),
+    #             account_name=cache_data.get("account_name"),
+    #             account_description=cache_data.get("account_description"),
+    #             organization=cache_data.get("organization"),
+    #         )
+    #     else:
+    #         _save_integration(
+    #             platform=platform,
+    #             profile_name=page["name"],
+    #             profile_id=page["id"],
+    #             profile_image=page.get("picture", {}).get("data", {}).get("url"),
+    #             access_token=user_token,
+    #             expires_in=expires_in,
+    #             page_id=page["id"],
+    #             page_access_token=page["access_token"],
+    #             account_type="Page",
+    #             followers_count=page.get("fan_count", 0),
+    #             authorized_user_id=me_data.get("id"),
+    #             authorized_user_name=me_data.get("name"),
+    #             authorized_user_email=me_data.get("email"),
+    #             account_name=cache_data.get("account_name"),
+    #             account_description=cache_data.get("account_description"),
+    #             organization=cache_data.get("organization"),
+    #         )
+
+    # frappe.cache().delete_value(f"oauth_state_{state}")
+
+    # return _oauth_success_redirect("new")
+    frappe.set_user(cache_data["user"])
+
+    for page in approved_pages:
+        try:
+            if platform == "Instagram":
+                integration = _save_integration(
+                    platform=platform,
+                    profile_id=page["instagram_id"],
+                    profile_name=page["instagram_username"],
+                    access_token=user_token,
+                    expires_in=expires_in,
+                    page_id=page["page_id"],
+                    page_access_token=page["page_access_token"],
+                    profile_image=page.get("profile_picture_url"),
+                    authorized_user_id=me_data.get("id"),
+                    authorized_user_name=me_data.get("name"),
+                    authorized_user_email=me_data.get("email"),
+                    followers_count=page.get("followers_count", 0),
+                    account_name=cache_data.get("account_name") or page["instagram_username"],  # Fallback added
+                    account_description=cache_data.get("account_description"),
+                    organization=cache_data.get("organization"),
+                )
+                frappe.logger().info(f"Instagram integration created: {integration.name}")
+                
+            else:
+                integration = _save_integration(
+                    platform=platform,
+                    profile_id=page["id"],  # Already added - good!
+                    profile_name=page["name"],
+                    profile_image=page.get("picture", {}).get("data", {}).get("url"),
+                    access_token=user_token,
+                    expires_in=expires_in,
+                    page_id=page["id"],
+                    page_access_token=page["access_token"],
+                    account_type="Page",
+                    followers_count=page.get("fan_count", 0),
+                    authorized_user_id=me_data.get("id"),
+                    authorized_user_name=me_data.get("name"),
+                    authorized_user_email=me_data.get("email"),
+                    account_name=cache_data.get("account_name") or page["name"],  # Fallback added
+                    account_description=cache_data.get("account_description"),
+                    organization=cache_data.get("organization"),
+                )
+                frappe.logger().info(f"Facebook integration created: {integration.name}")
+                
+        except Exception as e:
+            error_msg = f"Failed to save {platform} page {page.get('name')}: {str(e)}"
+            frappe.logger().error(error_msg)
+            frappe.log_error(frappe.get_traceback(), f"{platform} Integration Creation Failed")
+            # Continue with other pages instead of failing completely
+            continue
+        
     frappe.cache().delete_value(f"oauth_state_{state}")
-
-    # Single page - connect directly
-    if len(pages) == 1:
-        frappe.set_user(cache_data["user"])
-        return _connect_meta_page(session_key, 0)
-
-    # Multiple pages - redirect to selection
-    frappe.local.response.update(
-        {"type": "redirect", "location": f"/select-social-page?session={session_key}&platform={platform}"}
-    )
+    return _oauth_success_redirect("new")
 
 
-@frappe.whitelist()
-def get_available_pages(session_key: str) -> dict:
-    """Get pages for selection UI"""
-    cache_data = frappe.cache().get_value(f"meta_pages_{session_key}")
-    if not cache_data or cache_data["user"] != frappe.session.user:
-        frappe.throw(_("Session expired"))
 
-    platform = cache_data["platform"]
-    formatted = []
-    for i, page in enumerate(cache_data["pages"]):
-        if platform == "Instagram":
-            formatted.append(
-                {
-                    "index": i,
-                    "id": page["instagram_id"],
-                    "name": f"@{page['instagram_username']}",
-                    "followers": page.get("followers_count", 0),
-                }
-            )
-        else:
-            formatted.append(
-                {"index": i, "id": page["id"], "name": page["name"], "followers": page.get("fan_count", 0)}
-            )
+# @frappe.whitelist()
+# def get_available_pages(session_key: str) -> dict:
+#     """Get pages for selection UI"""
+#     cache_data = frappe.cache().get_value(f"meta_pages_{session_key}")
+#     if not cache_data or cache_data["user"] != frappe.session.user:
+#         frappe.throw(_("Session expired"))
 
-    return {"platform": platform, "pages": formatted}
+#     platform = cache_data["platform"]
+#     formatted = []
+#     for i, page in enumerate(cache_data["pages"]):
+#         if platform == "Instagram":
+#             formatted.append(
+#                 {
+#                     "index": i,
+#                     "id": page["instagram_id"],
+#                     "name": f"@{page['instagram_username']}",
+#                     "followers": page.get("followers_count", 0),
+#                 }
+#             )
+#         else:
+#             formatted.append(
+#                 {"index": i, "id": page["id"], "name": page["name"], "followers": page.get("fan_count", 0)}
+#             )
 
-
-@frappe.whitelist()
-def connect_page(session_key: str, page_index: int) -> dict:
-    return _connect_meta_page(session_key, int(page_index))
+#     return {"platform": platform, "pages": formatted}
 
 
-def _connect_meta_page(session_key: str, page_index: int):
-    """Connect a specific Meta page"""
-    cache_data = frappe.cache().get_value(f"meta_pages_{session_key}")
-    if not cache_data:
-        frappe.throw(_("Session expired"))
+# @frappe.whitelist()
+# def connect_page(session_key: str, page_index: int) -> dict:
+#     return _connect_meta_page(session_key, int(page_index))
 
-    page = cache_data["pages"][page_index]
-    platform = cache_data["platform"]
 
-    if platform == "Instagram":
-        profile_id, profile_name = page["instagram_id"], page["instagram_username"]
-        page_id, page_token = page["page_id"], page["page_access_token"]
-        account_type, followers = "Business", page.get("followers_count", 0)
-    else:
-        profile_id, profile_name = page["id"], page["name"]
-        page_id, page_token = page["id"], page["access_token"]
-        account_type, followers = "Page", page.get("fan_count", 0)
+# def _connect_meta_page(session_key: str, page_index: int):
+#     """Connect a specific Meta page"""
+#     cache_data = frappe.cache().get_value(f"meta_pages_{session_key}")
+#     if not cache_data:
+#         frappe.throw(_("Session expired"))
 
-    integration = _save_integration(
-        platform=platform,
-        profile_id=profile_id,
-        profile_name=profile_name,
-        profile_image=page.get("picture", {}).get("data", {}).get("url"),
-        access_token=cache_data["user_access_token"],
-        expires_in=cache_data["expires_in"],
-        page_id=page_id,
-        page_access_token=page_token,
-        account_type=account_type,
-        followers_count=followers,
-        account_name=cache_data.get("account_name"),
-        account_description=cache_data.get("account_description"),
-        organization=cache_data.get("organization"),
-    )
+#     page = cache_data["pages"][page_index]
+#     platform = cache_data["platform"]
 
-    return _oauth_success_redirect(integration.name)
+#     if platform == "Instagram":
+#         profile_id, profile_name = page["instagram_id"], page["instagram_username"]
+#         page_id, page_token = page["page_id"], page["page_access_token"]
+#         account_type, followers = "Business", page.get("followers_count", 0)
+#     else:
+#         profile_id, profile_name = page["id"], page["name"]
+#         page_id, page_token = page["id"], page["access_token"]
+#         account_type, followers = "Page", page.get("fan_count", 0)
+
+#     integration = _save_integration(
+#         platform=platform,
+#         profile_id=profile_id,
+#         profile_name=profile_name,
+#         profile_image=page.get("picture", {}).get("data", {}).get("url"),
+#         access_token=cache_data["user_access_token"],
+#         expires_in=cache_data["expires_in"],
+#         page_id=page_id,
+#         page_access_token=page_token,
+#         account_type=account_type,
+#         followers_count=followers,
+#         account_name=cache_data.get("account_name"),
+#         account_description=cache_data.get("account_description"),
+#         organization=cache_data.get("organization"),
+#     )
+
+#     return {"success": True, "integration": integration.name} #_oauth_success_redirect(integration.name)
 
 
 @frappe.whitelist(allow_guest=True)
@@ -514,11 +619,116 @@ def callback_youtube():
 # =============================================================================
 
 
+# def _save_integration(
+#     platform: str,
+#     profile_name: str,
+#     access_token: str,
+#     profile_id: str = None,
+#     refresh_token: str = None,
+#     expires_in: int = None,
+#     page_id: str = None,
+#     page_access_token: str = None,
+#     account_type: str = None,
+#     followers_count: int = 0,
+#     account_name: str = None,
+#     organization: str = None,
+#     account_description: str = None,
+#     profile_image: str = None,
+#     authorized_user_id: str = None,
+#     authorized_user_name: str = None,
+#     authorized_user_email: str = None,
+# ):
+#     """Create or update Social Integration"""
+#     existing = frappe.db.get_value(
+#         "Social Integration", {"platform": platform, "profile_id": profile_id}, "name"
+#     )
+
+#     if existing:
+#         integration = frappe.get_doc("Social Integration", existing)
+#     else:
+#         integration = frappe.new_doc("Social Integration")
+#         integration.platform = platform
+
+#     integration.profile_id = profile_id
+#     integration.profile_name = profile_name
+#     integration.access_token = access_token
+#     integration.connection_status = "Connected"
+#     integration.enabled = 1
+#     integration.last_error = None
+
+#     if account_name:
+#         integration.account_name = account_name
+#     if account_description:
+#         integration.account_description = account_description
+#     if organization:
+#         integration.organization = organization
+
+#     if account_type:
+#         integration.account_type = account_type
+#     if followers_count:
+#         integration.followers_count = followers_count
+#     if refresh_token:
+#         integration.refresh_token = refresh_token
+#     if expires_in:
+#         integration.token_expiry = add_to_date(now_datetime(), seconds=expires_in)
+#     if page_id:
+#         integration.page_id = page_id
+#     if page_access_token:
+#         integration.page_access_token = page_access_token
+#     if profile_image:
+#         integration.profile_image = profile_image
+#     if authorized_user_id:
+#         integration.authorized_user_id = authorized_user_id
+#     if authorized_user_name:
+#         integration.authorized_user_name = authorized_user_name
+#     if authorized_user_email:
+#         integration.authorized_user_email = authorized_user_email
+
+#     integration.save(ignore_permissions=True)
+
+#     if profile_image:
+#         try:
+#             response = requests.get(profile_image)
+#             if response.status_code == 200:
+#                 # Guess file extension
+#                 content_type = response.headers.get("content-type", "image/jpeg")
+#                 ext = content_type.split("/")[-1]
+#                 if ext not in ["jpeg", "jpg", "png", "gif", "webp"]:
+#                     ext = "jpg"
+
+#                 file_name = f"{platform}_{profile_name}_profile.{ext}"
+
+#                 file_doc = frappe.get_doc(
+#                     {
+#                         "doctype": "File",
+#                         "file_name": file_name,
+#                         "attached_to_doctype": "Social Integration",
+#                         "attached_to_name": integration.name,
+#                         "attached_to_field": "profile_image",
+#                         "content": response.content,
+#                         "is_private": 0,
+#                         "decode": False,
+#                     }
+#                 )
+#                 file_doc.insert(ignore_permissions=True)
+
+#                 # Set the profile_image field to the new file
+#                 integration.profile_image = file_doc.file_url
+#                 integration.save(ignore_permissions=True)
+
+#         except Exception as e:
+#             frappe.log_error(
+#                 f"Failed to fetch profile image for {profile_name}: {str(e)}", "OAuth Profile Image"
+#             )
+
+#     frappe.db.commit()
+#     return integration
+
 def _save_integration(
     platform: str,
-    profile_id: str,
     profile_name: str,
     access_token: str,
+    profile_id: str = None,
     refresh_token: str = None,
     expires_in: int = None,
     page_id: str = None,
@@ -529,63 +739,95 @@ def _save_integration(
     organization: str = None,
     account_description: str = None,
     profile_image: str = None,
+    authorized_user_id: str = None,
+    authorized_user_name: str = None,
+    authorized_user_email: str = None,
 ):
     """Create or update Social Integration"""
-    existing = frappe.db.get_value(
-        "Social Integration", {"platform": platform, "profile_id": profile_id}, "name"
-    )
+    
+    # CRITICAL FIX: account_name is REQUIRED field - use fallback
+    if not account_name:
+        account_name = profile_name
+    
+    try:
+        # Only search with profile_id if it exists
+        existing = None
+        if profile_id:
+            existing = frappe.db.get_value(
+                "Social Integration", 
+                {"platform": platform, "profile_id": profile_id}, 
+                "name"
+            )
+        
+        # If no existing found by profile_id, try by profile_name
+        if not existing:
+            existing = frappe.db.get_value(
+                "Social Integration", 
+                {"platform": platform, "profile_name": profile_name, "organization": organization}, 
+                "name"
+            )
 
-    if existing:
-        integration = frappe.get_doc("Social Integration", existing)
-    else:
-        integration = frappe.new_doc("Social Integration")
-        integration.platform = platform
+        if existing:
+            integration = frappe.get_doc("Social Integration", existing)
+            frappe.logger().info(f"Updating existing integration: {existing}")
+        else:
+            integration = frappe.new_doc("Social Integration")
+            integration.platform = platform
+            frappe.logger().info(f"Creating new {platform} integration for {profile_name}")
 
-    integration.profile_id = profile_id
-    integration.profile_name = profile_name
-    integration.access_token = access_token
-    integration.connection_status = "Connected"
-    integration.enabled = 1
-    integration.last_error = None
+        # Set required fields first
+        integration.account_name = account_name  # REQUIRED
+        integration.profile_name = profile_name
+        integration.access_token = access_token
+        integration.connection_status = "Connected"
+        integration.enabled = 1
+        integration.last_error = None
+        
+        # Set optional fields
+        if profile_id:
+            integration.profile_id = profile_id
+        if account_description:
+            integration.account_description = account_description
+        if organization:
+            integration.organization = organization
+        if account_type:
+            integration.account_type = account_type
+        if followers_count:
+            integration.followers_count = followers_count
+        if refresh_token:
+            integration.refresh_token = refresh_token
+        if expires_in:
+            integration.token_expiry = add_to_date(now_datetime(), seconds=expires_in)
+        if page_id:
+            integration.page_id = page_id
+        if page_access_token:
+            integration.page_access_token = page_access_token
+        if profile_image:
+            integration.profile_image = profile_image
+        if authorized_user_id:
+            integration.authorized_user_id = authorized_user_id
+        if authorized_user_name:
+            integration.authorized_user_name = authorized_user_name
+        if authorized_user_email:
+            integration.authorized_user_email = authorized_user_email
 
-    if account_name:
-        integration.account_name = account_name
-    if account_description:
-        integration.account_description = account_description
-    if organization:
-        integration.organization = organization
+        # Save the document
+        integration.save(ignore_permissions=True)
+        frappe.logger().info(f"Successfully saved integration: {integration.name}")
 
-    if account_type:
-        integration.account_type = account_type
-    if followers_count:
-        integration.followers_count = followers_count
-    if refresh_token:
-        integration.refresh_token = refresh_token
-    if expires_in:
-        integration.token_expiry = add_to_date(now_datetime(), seconds=expires_in)
-    if page_id:
-        integration.page_id = page_id
-    if page_access_token:
-        integration.page_access_token = page_access_token
-    if profile_image:
-        integration.profile_image = profile_image
+        # Handle profile image download (non-critical)
+        if profile_image:
+            try:
+                response = requests.get(profile_image, timeout=10)
+                if response.status_code == 200:
+                    content_type = response.headers.get("content-type", "image/jpeg")
+                    ext = content_type.split("/")[-1]
+                    if ext not in ["jpeg", "jpg", "png", "gif", "webp"]:
+                        ext = "jpg"
 
-    integration.save(ignore_permissions=True)
+                    file_name = f"{platform}_{profile_name}_profile.{ext}".replace(" ", "_")
 
-    if profile_image:
-        try:
-            response = requests.get(profile_image)
-            if response.status_code == 200:
-                # Guess file extension
-                content_type = response.headers.get("content-type", "image/jpeg")
-                ext = content_type.split("/")[-1]
-                if ext not in ["jpeg", "jpg", "png", "gif", "webp"]:
-                    ext = "jpg"
-
-                file_name = f"{platform}_{profile_name}_profile.{ext}"
-
-                file_doc = frappe.get_doc(
-                    {
+                    file_doc = frappe.get_doc({
                         "doctype": "File",
                         "file_name": file_name,
                         "attached_to_doctype": "Social Integration",
@@ -594,21 +836,29 @@ def _save_integration(
                         "content": response.content,
                         "is_private": 0,
                         "decode": False,
-                    }
+                    })
+                    file_doc.insert(ignore_permissions=True)
+
+                    integration.profile_image = file_doc.file_url
+                    integration.save(ignore_permissions=True)
+                    frappe.logger().info(f"Profile image saved for {integration.name}")
+
+            except Exception as e:
+                frappe.log_error(
+                    f"Failed to fetch profile image for {profile_name}: {str(e)}", 
+                    "OAuth Profile Image Download"
                 )
-                file_doc.insert(ignore_permissions=True)
+                # Don't fail the whole integration if image download fails
 
-                # Set the profile_image field to the new file
-                integration.profile_image = file_doc.file_url
-                integration.save(ignore_permissions=True)
+        frappe.db.commit()
+        return integration
 
-        except Exception as e:
-            frappe.log_error(
-                f"Failed to fetch profile image for {profile_name}: {str(e)}", "OAuth Profile Image"
-            )
-
-    frappe.db.commit()
-    return integration
+    except Exception as e:
+        frappe.db.rollback()
+        error_msg = f"Failed to save {platform} integration for {profile_name}: {str(e)}"
+        frappe.logger().error(error_msg)
+        frappe.log_error(frappe.get_traceback(), f"Social Integration Save Failed - {platform}")
+        raise Exception(error_msg)
 
 
 @frappe.whitelist()

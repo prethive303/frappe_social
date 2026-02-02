@@ -26,3 +26,9 @@ scheduler_events = {
         "frappe_social.frappe_social.tasks.fetch_post_analytics",
     ],
 }
+
+doc_events = {
+    "Marketing Campaign": {
+        "before_save": "frappe_social.ads_manager.script.campaign.marketing_campaign_before_save",
+    }
+}

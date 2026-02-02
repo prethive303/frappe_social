@@ -5,10 +5,6 @@ frappe.ui.form.on('Social Integration', {
     refresh: function (frm) {
         // Block manual creation - redirect to list
         if (frm.is_new()) {
-            frappe.show_alert({
-                message: __('Use "Connect Account" button to add integrations'),
-                indicator: 'orange'
-            });
             frappe.set_route('List', 'Social Integration');
             return;
         }

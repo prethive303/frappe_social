@@ -73,6 +73,7 @@
    "label": "Profile Information"
   },
   {
+   "depends_on": "eval:doc.platform === \"Instagram\"",
    "fieldname": "profile_id",
    "fieldtype": "Data",
    "label": "Profile ID",
@@ -102,18 +103,17 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "Personal",
    "fieldname": "account_type",
    "fieldtype": "Select",
    "label": "Account Type",
-   "options": "Personal\nBusiness\nPage\nOrganization\nChannel",
+   "options": "Business\nPage\nOrganization\nChannel",
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.platform === \"Instagram\"",
+   "depends_on": "eval:doc.platform === \"Facebook\"",
    "fieldname": "page_id",
    "fieldtype": "Data",
-   "label": "Page/Channel ID",
+   "label": "Page ID",
    "read_only": 1
   },
   {
@@ -252,7 +252,7 @@
  ],
  "image_field": "profile_image",
  "links": [],
- "modified": "2026-01-06 20:59:17.963937",
+ "modified": "2026-01-31 12:19:04.230063",
  "modified_by": "Administrator",
  "module": "Frappe Social",
  "name": "Social Integration",

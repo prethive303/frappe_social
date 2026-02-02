@@ -45,16 +45,16 @@ frappe.listview_settings['Social Integration'] = {
                 }
             );
         });
+        
     },
 
-    refresh: function (listview) {
-        // Ensure Connect Account button is present after refresh
-        if (!listview.page.btn_primary || listview.page.btn_primary.text().trim() !== __('Connect Account')) {
-            listview.page.clear_primary_action();
-            listview.page.set_primary_action(__('Connect Account'), function () {
-                show_connect_dialog();
-            }, 'add');
-        }
+    refresh(listview) {
+        listview.page.clear_primary_action();
+        listview.page.set_primary_action(
+            __('Connect Account'),
+            () => show_connect_dialog(),
+            'add'
+        );
     }
 };
 function show_connect_dialog() {

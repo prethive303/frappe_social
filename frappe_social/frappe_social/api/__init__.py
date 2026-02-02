@@ -12,8 +12,8 @@ from frappe_social.frappe_social.api.oauth import (
     initiate_oauth,
     disconnect,
     test_connection,
-    get_available_pages,
-    connect_page,
+    # get_available_pages,
+    # connect_page,
 )
 
 # Post APIs
