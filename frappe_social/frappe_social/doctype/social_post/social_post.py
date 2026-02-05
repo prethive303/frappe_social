@@ -482,6 +482,8 @@ class SocialPost(Document):
 
         # Get Facebook page ID
         page_id = self._get_facebook_page_id()
+        if not page_id:
+            frappe.throw(_("Facebook Page ID is required for ad creatives"), title=_("Missing Page ID"))
 
         # Get creative data from child table
         creative_name = self.post_name or f"Creative for {self.name}"
@@ -502,15 +504,27 @@ class SocialPost(Document):
                 parsed = urlparse(link_url)
                 caption = parsed.netloc or link_url
 
-        # Build link_data structure
+        # Validate link_url if provided
+        if link_url and not self._is_valid_url(link_url):
+            frappe.throw(_("Invalid link URL in creative"), title=_("Invalid URL"))
+
+        # Get clean content for message
+        clean_content = self._get_clean_content()
+        
+        # Ensure link_url has a valid value
+        if not link_url or link_url.strip() == '':
+            frappe.throw(_("Link URL is required for ad creatives"), title=_("Missing Link URL"))
+        
+        # Build link_data structure with required fields
         link_data = {
-            "link": link_url,
-            "description": self._get_clean_content()[:200] if self.content else "",
+            "link": link_url,  # Required field
+            "description": clean_content[:200] if clean_content else "Ad",  # Ensure not empty
+            "caption": caption or link_url or "walue.biz"  # Use caption or fallback to link URL
         }
 
         # Add caption if we have it
-        if caption:
-            link_data["caption"] = caption
+        # if caption:
+        #     link_data["caption"] = caption
 
         # Add call to action if provided
         if cta_type:
@@ -529,7 +543,9 @@ class SocialPost(Document):
                     # Single image - upload and get URL
                     image_url = self._upload_image_to_meta(media_item.file)
                     if image_url:
-                        link_data["picture"] = image_url  # ✅ Use 'picture' with URL
+                        # Sanitize image URL - remove tracking parameters
+                        clean_url = self._sanitize_image_url(image_url)
+                        link_data["picture"] = image_url # ✅ Use 'picture' with URL
                 elif "video" in file_type:
                     # Single video
                     video_id = self._upload_video_to_meta(media_item.file)
@@ -541,8 +557,10 @@ class SocialPost(Document):
                 for media_item in self.media:
                     image_url = self._upload_image_to_meta(media_item.file)
                     if image_url:
+                        # Sanitize image URL
+                        clean_url = self._sanitize_image_url(image_url)
                         child_attachments.append({
-                            "picture": image_url,  # ✅ Use 'picture' with URL
+                            "picture": clean_url,  # ✅ Use 'picture' with URL
                             "link": link_url,
                             "description": self._get_clean_content()[:200] if self.content else ""
                         })
@@ -551,16 +569,17 @@ class SocialPost(Document):
                     link_data["child_attachments"] = child_attachments
                     link_data["multi_share_optimized"] = True
 
-        # Build object_story_spec
+        # Build object_story_spec with required fields
         object_story_spec = {
             "page_id": page_id,
-            "link_data": link_data
+            "link_data": link_data,
+            # "picture": image_url  # ✅ Use 'picture' with URL
         }
 
-        # Build the complete creative payload
+        # Build the complete creative payload with all required fields
         creative_payload = {
             "name": creative_name,
-            "object_story_spec": object_story_spec
+            "object_story_spec": object_story_spec,
         }
 
         frappe.log_error(
@@ -581,20 +600,25 @@ class SocialPost(Document):
         if not self.is_ad:
             frappe.throw(_("This is not an ad post"), title=_("Invalid Operation"))
 
-        if not creative_id:
-            frappe.throw(_("Creative ID is required to create ad"), title=_("Missing Creative ID"))
+        if not creative_id or not creative_id.strip():
+            raise ValueError("Creative ID is required and cannot be empty")
 
         # Get ad set
-        ad_set = frappe.get_doc('Ad Set', self.select_ad_set)
-        if not ad_set.adset_id:
-            frappe.throw(
-                _("Ad Set has not been created on Meta yet"),
-                title=_("Ad Set Not Created")
-            )
+        try:
+            ad_set = frappe.get_doc('Ad Set', self.select_ad_set)
+        except Exception as e:
+            raise ValueError(f"Ad Set '{self.select_ad_set}' not found: {str(e)}")
+
+        if not ad_set.adset_id or not ad_set.adset_id.strip():
+            raise ValueError(f"Ad Set '{self.select_ad_set}' has not been created on Meta yet. Ensure the ad set is properly synced.")
 
         # Build ad payload
+        ad_name = self.post_name or f"Ad for {self.name}"
+        if not ad_name or not ad_name.strip():
+            ad_name = f"Ad {self.name} {frappe.utils.now_datetime()}"
+
         ad_payload = {
-            "name": self.post_name or f"Ad for {self.name}",
+            "name": ad_name,
             "adset_id": ad_set.adset_id,
             "creative": {
                 "creative_id": creative_id
@@ -774,6 +798,63 @@ class SocialPost(Document):
 
         return cta_mapping.get(cta, "LEARN_MORE")  # Default to LEARN_MORE
 
+    def _is_valid_url(self, url: str) -> bool:
+        """
+        Validate if URL is properly formatted
+        Args:
+            url: URL string to validate
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        if not url:
+            return True  # Empty is ok for optional fields
+        
+        # Basic URL validation
+        url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
+        return bool(re.match(url_pattern, url))
+
+    def _sanitize_image_url(self, image_url: str) -> str:
+        """
+        Sanitize image URL by removing Facebook tracking parameters
+        that might cause validation errors
+        Args:
+            image_url: Original image URL from Meta
+        Returns:
+            str: Sanitized URL
+        """
+        if not image_url:
+            return image_url
+        
+        try:
+            from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+            
+            parsed = urlparse(image_url)
+            params = parse_qs(parsed.query)
+            
+            # Keep only essential parameters, remove tracking/cdm params
+            allowed_params = ['w', 'h', 'quality', 'format']
+            filtered_params = {k: v for k, v in params.items() if k in allowed_params}
+            
+            # Reconstruct query string
+            new_query = urlencode(filtered_params, doseq=True)
+            new_parsed = parsed._replace(query=new_query)
+            
+            sanitized_url = urlunparse(new_parsed)
+            
+            frappe.log_error(
+                message=f"Original URL: {image_url}\nSanitized URL: {sanitized_url}",
+                title="Image URL Sanitization"
+            )
+            
+            return sanitized_url
+        except Exception as e:
+            # If sanitization fails, return original URL
+            frappe.log_error(
+                message=f"Failed to sanitize image URL: {str(e)}",
+                title="Image URL Sanitization Error"
+            )
+            return image_url
+
     def publish_as_ad(self):
         """
         Publish the social post as a Meta Ad
@@ -785,13 +866,26 @@ class SocialPost(Document):
         try:
             from frappe_social.ads_manager.providers.meta_ads import MetaAdsProvider
 
+            # Validate required fields before proceeding
+            if not self.select_ad_account:
+                raise ValueError("Ads Account Integration is required")
+            if not self.select_ad_set:
+                raise ValueError("Ad Set is required")
+            if not self.selected_facebook_page:
+                raise ValueError("Facebook Page is required")
+            if not self.ad_creative or len(self.ad_creative) == 0:
+                raise ValueError("Ad Creative details are required")
+
             # Set status to Publishing
             self.status = "Publishing"
             self.save(ignore_permissions=True)
             frappe.db.commit()
 
             # Initialize provider
-            provider = MetaAdsProvider(self.select_ad_account)
+            try:
+                provider = MetaAdsProvider(self.select_ad_account)
+            except Exception as e:
+                raise ValueError(f"Failed to initialize ads provider: {str(e)}")
 
             # Step 1: Build and create creative
             frappe.log_error(
@@ -803,7 +897,16 @@ class SocialPost(Document):
             page_access_token = self._get_page_access_token()
 
             # Build creative payload
-            creative_payload = self.build_ad_creative_payload()
+            try:
+                creative_payload = self.build_ad_creative_payload()
+            except Exception as e:
+                raise ValueError(f"Failed to build creative payload: {str(e)}")
+
+            # Validate creative payload
+            if not creative_payload.get('object_story_spec', {}).get('page_id'):
+                raise ValueError("Page ID is missing from creative payload")
+            if not creative_payload.get('object_story_spec', {}).get('link_data'):
+                raise ValueError("Link data is missing from creative payload")
 
             # Create creative
             creative_result = provider.create_creative(creative_payload, page_access_token)
@@ -812,6 +915,8 @@ class SocialPost(Document):
                 raise Exception(f"Creative creation failed: {creative_result.error_message}")
 
             creative_id = creative_result.creative_id
+            if not creative_id:
+                raise ValueError("No creative ID returned from API")
 
             # Update creative row if exists
             if self.ad_creative and len(self.ad_creative) > 0:
@@ -829,31 +934,57 @@ class SocialPost(Document):
             )
 
             # Step 2: Build and create ad
-            ad_payload = self.build_ad_payload(creative_id)
+            try:
+                ad_payload = self.build_ad_payload(creative_id)
+            except Exception as e:
+                raise ValueError(f"Failed to build ad payload: {str(e)}")
+
             ad_result = provider.create_ad(ad_payload)
 
             if not ad_result.success:
                 raise Exception(f"Ad creation failed: {ad_result.error_message}")
 
+            ad_id = ad_result.ad_id
+            if not ad_id:
+                raise ValueError("No ad ID returned from API")
+
             # Update document with IDs
-            self.ad_id = ad_result.ad_id
+            self.ad_id = ad_id
             self.status = "Published"
 
             self.save(ignore_permissions=True)
             frappe.db.commit()
 
             frappe.log_error(
-                message=f"Ad created successfully: {ad_result.ad_id}",
+                message=f"Ad created successfully: {ad_id}\nCreative ID: {creative_id}",
                 title=f"Ad Publishing Complete - {self.name}"
             )
 
             return {
                 "success": True,
                 "creative_id": creative_id,
-                "ad_id": ad_result.ad_id
+                "ad_id": ad_id,
+                "message": f"Ad published successfully with ID {ad_id}"
             }
 
+        except ValueError as e:
+            # Validation errors
+            error_msg = str(e)
+            frappe.log_error(
+                message=f"Validation error: {error_msg}",
+                title=f"Ad Publishing Validation Error - {self.name}"
+            )
+            self.status = "Failed"
+            self.error_log = error_msg
+            self.save(ignore_permissions=True)
+            frappe.db.commit()
+            return {
+                "success": False,
+                "error_message": error_msg,
+                "error_type": "validation"
+            }
         except Exception as e:
+            # API or other errors
             error_msg = str(e)
             frappe.log_error(
                 message=f"Ad publishing failed: {error_msg}\n{frappe.get_traceback()}",
@@ -867,7 +998,8 @@ class SocialPost(Document):
 
             return {
                 "success": False,
-                "error_message": error_msg
+                "error_message": error_msg,
+                "error_type": "api"
             }
 
 
@@ -923,23 +1055,39 @@ def publish_ad(post_name):
 
 
 @frappe.whitelist()
-def get_platforms_for_organization(organization):
+def get_platforms_for_organization(organization, is_ad=0):
     """Get available platforms for an organization"""
     if not organization:
         return []
-
-    platforms = frappe.db.get_all(
-        "Social Integration",
-        filters={
-            "organization": organization,
-            "enabled": 1,
-            "connection_status": "Connected"
-        },
-        pluck="platform",
-        distinct=True,
-        order_by="platform asc",
-    )
-
+    
+    # Determine which doctype to query based on mode
+    if int(is_ad):
+        # For ads mode - use Ads Account Integration with 'organisation' field (British spelling)
+        platforms = frappe.db.get_all(
+            "Ads Account Integration",
+            filters={
+                "organisation": organization,  # Note: British spelling with 's'
+                "enabled": 1,
+                "connection_status": "Connected"
+            },
+            pluck="platform",
+            distinct=True,
+            order_by="platform asc",
+        )
+    else:
+        # For normal posts mode - use Social Integration with 'organization' field
+        platforms = frappe.db.get_all(
+            "Social Integration",
+            filters={
+                "organization": organization,  # American spelling
+                "enabled": 1,
+                "connection_status": "Connected"
+            },
+            pluck="platform",
+            distinct=True,
+            order_by="platform asc",
+        )
+    
     return platforms or []
 
 

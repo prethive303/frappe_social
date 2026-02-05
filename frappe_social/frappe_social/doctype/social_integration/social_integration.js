@@ -11,7 +11,7 @@ frappe.ui.form.on('Social Integration', {
 
         // Add Connect button for disconnected integrations
         if (frm.doc.connection_status !== 'Connected') {
-            frm.add_custom_button(__('Connect Account'), function () {
+            frm.add_custom_button(__('Re-Connect'), function () {
                 frm.trigger('connect_account');
             }, __('Actions'));
         }
@@ -41,31 +41,102 @@ frappe.ui.form.on('Social Integration', {
     },
 
     connect_account: function (frm) {
+        let popup = null;
+        let checkInterval = null;
+        
+        const messageHandler = function(event) {
+            if (event.origin !== window.location.origin) return;
+
+            if (event.data && event.data.type === 'oauth_complete') {
+                console.log('OAuth complete:', event.data);
+
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                }
+
+                if (popup && !popup.closed) {
+                    popup.close();
+                }
+
+                frappe.show_alert({
+                    message: __('Account reconnected successfully'),
+                    indicator: 'green'
+                }, 5);
+
+                setTimeout(() => frm.reload_doc(), 500);
+                window.removeEventListener('message', messageHandler);
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
+
         frappe.call({
             method: 'frappe_social.frappe_social.api.oauth.initiate_oauth',
             args: {
                 platform: frm.doc.platform,
-                integration: frm.doc.name
+                integration: frm.doc.name,
+                account_name: frm.doc.account_name
             },
             callback: function (r) {
                 if (r.message && r.message.authorization_url) {
-                    const popup = window.open(
+                    const width = 600;
+                    const height = 700;
+                    const left = (screen.width - width) / 2;
+                    const top = (screen.height - height) / 2;
+
+                    popup = window.open(
                         r.message.authorization_url,
                         'oauth_popup',
-                        'width=600,height=700,scrollbars=yes'
+                        `width=${width},height=${height},left=${left},top=${top}`
                     );
+                
+                    if (!popup) {
+                        frappe.msgprint(__('Please allow popups'));
+                        window.removeEventListener('message', messageHandler);
+                        return;
+                    }
+
+                    // Poll popup location
+                    checkInterval = setInterval(function() {
+                        if (!popup || popup.closed) {
+                            clearInterval(checkInterval);
+                            window.removeEventListener('message', messageHandler);
+                            return;
+                        }
+
+                        try {
+                            // Check if popup reached success URL
+                            const popupUrl = popup.location.href;
+                            if (popupUrl.includes('/app/social-integration?oauth_success=')) {
+                                clearInterval(checkInterval);
+
+                                // Extract integration name from URL
+                                const urlParams = new URLSearchParams(popup.location.search);
+                                const integration = urlParams.get('oauth_success');
+
+                                // Close popup
+                                popup.close();
+
+                                // Show success message
+                                frappe.show_alert({
+                                    message: __('Account reconnected successfully'),
+                                    indicator: 'green'
+                                }, 5);
+
+                                // Reload form
+                                setTimeout(() => frm.reload_doc(), 500);
+                                window.removeEventListener('message', messageHandler);
+                            }
+                        } catch (e) {
+                            // Cross-origin error - popup is still on OAuth provider
+                            // This is expected, just continue polling
+                        }
+                    }, 500);
 
                     frappe.show_alert({
-                        message: __('Complete authorization in the popup window'),
+                        message: __('Complete authorization in the popup'),
                         indicator: 'blue'
                     });
-
-                    const pollTimer = setInterval(function () {
-                        if (popup.closed) {
-                            clearInterval(pollTimer);
-                            frm.reload_doc();
-                        }
-                    }, 1000);
                 }
             }
         });

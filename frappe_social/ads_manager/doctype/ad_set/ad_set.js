@@ -11,6 +11,11 @@ frappe.ui.form.on('Ad Set', {
         
         // Disable adset_id field
         frm.set_df_property('adset_id', 'read_only', 1);
+        
+        // Load Facebook pages if campaign is already selected (on reload)
+        if (frm.doc.campaign) {
+            load_facebook_pages(frm);
+        }
     },
     
     onload(frm) {
@@ -27,61 +32,7 @@ frappe.ui.form.on('Ad Set', {
     campaign(frm) {
         // When campaign is selected, fetch and populate Facebook pages
         if (frm.doc.campaign) {
-            frappe.call({
-                method: 'frappe.client.get',
-                args: {
-                    doctype: 'Marketing Campaign',
-                    name: frm.doc.campaign
-                },
-                callback: function(r) {
-                    if (r.message && r.message.custom_select_facebook) {
-                        // Get the Ads Account Integration document
-                        frappe.call({
-                            method: 'frappe.client.get',
-                            args: {
-                                doctype: 'Ads Account Integration',
-                                name: r.message.custom_select_facebook,
-                                fields: ['fb_pages']
-                            },
-                            callback: function(res) {
-                                if (res.message && res.message.fb_pages && res.message.fb_pages.length > 0) {
-                                    // Build options for select field
-                                    let page_options = res.message.fb_pages.map(page => page.page_name);
-                                    
-                                    // Update the select field options
-                                    frm.set_df_property('select_facebook_page', 'options', page_options.join('\n'));
-                                    frm.refresh_field('select_facebook_page');
-                                    
-                                    frappe.show_alert({
-                                        message: __(`${page_options.length} Facebook page(s) loaded`),
-                                        indicator: 'green'
-                                    });
-                                } else {
-                                    frappe.msgprint({
-                                        title: __('No Facebook Pages'),
-                                        indicator: 'orange',
-                                        message: __('No Facebook pages found for this ad account. Please sync your account.')
-                                    });
-                                    
-                                    // Clear the field
-                                    frm.set_df_property('select_facebook_page', 'options', '');
-                                    frm.refresh_field('select_facebook_page');
-                                }
-                            }
-                        });
-                    } else {
-                        frappe.msgprint({
-                            title: __('Invalid Campaign'),
-                            indicator: 'red',
-                            message: __('Selected campaign does not have an associated Facebook ad account.')
-                        });
-                    }
-                }
-            });
-        } else {
-            // Clear Facebook pages when campaign is cleared
-            frm.set_df_property('select_facebook_page', 'options', '');
-            frm.refresh_field('select_facebook_page');
+            load_facebook_pages(frm);
         }
     },
     
@@ -113,3 +64,56 @@ frappe.ui.form.on('Ad Set', {
         }
     }
 });
+
+// Helper function to load Facebook pages
+function load_facebook_pages(frm) {
+    frappe.call({
+        method: 'frappe.client.get',
+        args: {
+            doctype: 'Marketing Campaign',
+            name: frm.doc.campaign
+        },
+        callback: function(r) {
+            if (r.message && r.message.custom_select_facebook) {
+                // Get the Ads Account Integration document
+                frappe.call({
+                    method: 'frappe.client.get',
+                    args: {
+                        doctype: 'Ads Account Integration',
+                        name: r.message.custom_select_facebook,
+                        fields: ['fb_pages']
+                    },
+                    callback: function(res) {
+                        if (res.message && res.message.fb_pages && res.message.fb_pages.length > 0) {
+                            // Build options for select field
+                            let page_options = res.message.fb_pages.map(page => page.page_name);
+                            
+                            // Update the select field options
+                            frm.set_df_property('select_facebook_page', 'options', page_options.join('\n'));
+                            
+                            frappe.show_alert({
+                                message: __(`${page_options.length} Facebook page(s) loaded`),
+                                indicator: 'green'
+                            });
+                        } else {
+                            frappe.msgprint({
+                                title: __('No Facebook Pages'),
+                                indicator: 'orange',
+                                message: __('No Facebook pages found for this ad account. Please sync your account.')
+                            });
+                            
+                            // Clear the field
+                            frm.set_df_property('select_facebook_page', 'options', '');
+                        }
+                    }
+                });
+            } else {
+                frappe.msgprint({
+                    title: __('Invalid Campaign'),
+                    indicator: 'red',
+                    message: __('Selected campaign does not have an associated Facebook ad account.')
+                });
+            }
+        }
+    });
+}

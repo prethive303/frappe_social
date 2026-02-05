@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_import": 1,
- "autoname": "format:{platform}-{profile_name}",
+ "autoname": "format:{platform}-{profile_name}{page_name}",
  "creation": "2025-12-15 12:16:24.021555",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -16,6 +16,7 @@
   "profile_image",
   "profile_section",
   "profile_name",
+  "page_name",
   "account_type",
   "profile_url",
   "profile_image_url",
@@ -44,7 +45,6 @@
   {
    "fieldname": "platform",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Platform",
    "options": "Twitter\nLinkedIn\nInstagram\nFacebook\nYouTube",
@@ -82,8 +82,8 @@
   {
    "fieldname": "profile_name",
    "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Profile Name"
+   "label": "Profile Name",
+   "read_only": 1
   },
   {
    "fieldname": "profile_url",
@@ -106,7 +106,7 @@
    "fieldname": "account_type",
    "fieldtype": "Select",
    "label": "Account Type",
-   "options": "Business\nPage\nOrganization\nChannel",
+   "options": "Business\nPage\nOrganization\nChannel\nPersonal",
    "read_only": 1
   },
   {
@@ -153,13 +153,13 @@
    "collapsible": 1,
    "fieldname": "oauth_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "OAuth Tokens"
   },
   {
    "fieldname": "access_token",
    "fieldtype": "Password",
-   "label": "Access Token",
-   "read_only": 1
+   "label": "Access Token"
   },
   {
    "fieldname": "refresh_token",
@@ -191,14 +191,14 @@
   },
   {
    "fieldname": "page_access_token",
-   "fieldtype": "Password",
-   "label": "Page Access Token",
-   "read_only": 1
+   "fieldtype": "Text",
+   "label": "Page Access Token"
   },
   {
    "collapsible": 1,
    "fieldname": "error_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Error Information"
   },
   {
@@ -248,11 +248,18 @@
    "fieldtype": "Attach Image",
    "hidden": 1,
    "label": "Profile Image"
+  },
+  {
+   "fieldname": "page_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Page Name",
+   "read_only": 1
   }
  ],
  "image_field": "profile_image",
  "links": [],
- "modified": "2026-01-31 12:19:04.230063",
+ "modified": "2026-02-05 12:11:49.633841",
  "modified_by": "Administrator",
  "module": "Frappe Social",
  "name": "Social Integration",
@@ -282,24 +289,11 @@
    "role": "Scheduler",
    "share": 1,
    "write": 1
-  },
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
   }
  ],
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "profile_name",
  "track_changes": 1
 }

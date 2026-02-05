@@ -18,11 +18,12 @@ scheduler_events = {
         "* * * * *": ["frappe_social.frappe_social.tasks.publish_scheduled_posts"],
         # Daily at midnight - reset rate limit counters
         "0 0 * * *": ["frappe_social.frappe_social.tasks.reset_rate_limit_counters"],
+        # Every 6 hours - fetch daily analytics
+        "0 */6 * * *": ["frappe_social.frappe_social.tasks.fetch_daily_analytics"],
     },
     # Hourly - refresh expiring tokens AND fetch analytics
     "hourly": [
         "frappe_social.frappe_social.tasks.refresh_expiring_tokens",
-        "frappe_social.frappe_social.tasks.fetch_daily_analytics",
         "frappe_social.frappe_social.tasks.fetch_post_analytics",
     ],
 }
@@ -31,4 +32,7 @@ doc_events = {
     "Marketing Campaign": {
         "before_save": "frappe_social.ads_manager.script.campaign.marketing_campaign_before_save",
     }
+}
+doctype_js = {
+    "Marketing Campaign": "public/js/marketing_campaign.js"
 }

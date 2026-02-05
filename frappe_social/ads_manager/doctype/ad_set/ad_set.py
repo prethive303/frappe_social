@@ -25,9 +25,6 @@ class AdSet(Document):
     def _create_meta_ad_set(self):
         """
         Create ad set via Meta Ads provider and store the adset_id
-
-        Raises:
-            frappe.ValidationError: If required fields are missing or API call fails
         """
         try:
             # Validate required fields
@@ -39,53 +36,53 @@ class AdSet(Document):
                 frappe.throw(_("Billing Event is required"))
             if not self.daily_budget:
                 frappe.throw(_("Daily Budget is required"))
-
-            # Get the campaign document to fetch account and campaign_id
+    
+            # Get the campaign document
             campaign_doc = frappe.get_doc("Marketing Campaign", self.campaign)
+            
+            logger.info(f"Campaign doc: {campaign_doc.name}")
+            logger.info(f"Campaign ID: {campaign_doc.custom_campaign_id}")
+            logger.info(f"Account: {campaign_doc.custom_select_facebook}")
+            
             if not campaign_doc.custom_campaign_id:
                 frappe.throw(_("Selected campaign has no Meta campaign ID"))
             if not campaign_doc.custom_select_facebook:
                 frappe.throw(_("Selected campaign has no associated account"))
-
-            # Initialize provider with the account integration
+    
+            # Initialize provider
             provider = MetaAdsProvider(campaign_doc.custom_select_facebook)
-
-            # Prepare and validate payload with all mappings
+    
+            # Build payload
             payload = self._build_ad_set_payload(campaign_doc)
-
-            logger.info(f"Creating ad set '{self.ad_set_name}' on Meta Ads")
-
-            # Create ad set on Meta
+            
+            # Log the payload
+            logger.info(f"Payload being sent to Meta: {frappe.as_json(payload, indent=2)}")
+    
+            # Create ad set
             result = provider.create_ad_set(payload)
-
+            
+            # Log the raw result
+            logger.info(f"Raw result from Meta: {result}")
+    
             if result.success:
-                # Store the adset_id returned from Meta
                 self.adset_id = result.adset_id
-                # Update the document with adset_id
-                frappe.db.set_value(self.doctype, self.name, "adset_id", self.adset_id)
-                logger.info(f"✓ Ad Set created successfully on Meta: {result.adset_id}")
+                logger.info(f"✓ Ad Set created successfully: {result.adset_id}")
                 frappe.msgprint(
                     _("Ad Set created successfully on Meta Ads. ID: {0}").format(result.adset_id),
                     alert=True,
                 )
             else:
                 error_msg = result.error_message or "Unknown error from Meta API"
-                logger.error(f"Failed to create ad set on Meta: {error_msg}")
+                logger.error(f"Failed to create ad set: {error_msg}")
                 frappe.throw(_("Failed to create ad set on Meta Ads: {0}").format(error_msg))
-
-        except frappe.DoesNotExistError:
-            frappe.throw(_("Campaign '{0}' does not exist.").format(self.campaign))
-        except ValueError as e:
-            frappe.throw(_("Invalid configuration: {0}").format(str(e)))
-        except frappe.ValidationError:
-            # Re-raise Frappe validation errors
-            raise
+    
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Unexpected error creating ad set: {error_msg}")
+            logger.error(f"Exception in _create_meta_ad_set: {error_msg}")
+            logger.error(frappe.get_traceback())
             frappe.log_error(frappe.get_traceback(), "Ad Set Creation Error")
             frappe.throw(_("Failed to create ad set: {0}").format(error_msg))
-            
+        
     def _build_ad_set_payload(self, campaign_doc) -> dict:
         """
         Build and validate ad set payload with all mappings and transformations

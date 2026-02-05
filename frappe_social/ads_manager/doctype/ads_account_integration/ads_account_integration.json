@@ -215,7 +215,7 @@
   },
   {
    "fieldname": "access_token",
-   "fieldtype": "Password",
+   "fieldtype": "Text",
    "label": "Access Token"
   },
   {
@@ -236,7 +236,7 @@
   },
   {
    "fieldname": "page_access_token",
-   "fieldtype": "Password",
+   "fieldtype": "Text",
    "label": "Page Access Token",
    "read_only": 1
   },
@@ -361,13 +361,8 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [
-  {
-   "link_doctype": "Ad Post",
-   "link_fieldname": "ads_account"
-  }
- ],
- "modified": "2026-01-29 13:19:36.470916",
+ "links": [],
+ "modified": "2026-02-04 22:50:02.288065",
  "modified_by": "Administrator",
  "module": "Ads Manager",
  "name": "Ads Account Integration",
@@ -382,7 +377,19 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "System Manager",
+   "role": "Administrator",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Scheduler",
    "share": 1,
    "write": 1
   }

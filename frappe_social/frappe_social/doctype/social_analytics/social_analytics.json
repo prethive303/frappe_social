@@ -1,32 +1,42 @@
 {
  "actions": [],
- "autoname": "format:{integration}-{date}",
+ "autoname": "format:{integration}",
  "creation": "2025-12-15 12:16:23.938317",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "integration",
+  "column_break_bnpv",
   "platform",
+  "column_break_xirk",
   "date",
   "followers_section",
   "followers_count",
+  "column_break_zosz",
   "following_count",
-  "posts_count",
   "column_break_followers",
   "followers_gained",
+  "column_break_dhjy",
+  "posts_count",
+  "column_break_eijp",
   "followers_lost",
   "engagement_section",
   "impressions",
-  "reach",
   "engagement_rate",
+  "column_break_ugjw",
+  "reach",
   "column_break_engagement",
   "likes",
-  "comments",
+  "column_break_ncyq",
   "shares",
+  "column_break_otuk",
+  "comments",
   "saves",
   "video_section",
   "video_views",
+  "column_break_aqez",
   "watch_time_minutes",
+  "column_break_ocgi",
   "avg_view_duration",
   "metrics_section",
   "metrics"
@@ -35,7 +45,6 @@
   {
    "fieldname": "integration",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Integration",
    "options": "Social Integration",
@@ -43,10 +52,10 @@
   },
   {
    "fieldname": "platform",
-   "fieldtype": "Data",
-   "in_list_view": 1,
+   "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Platform",
+   "options": "Facebook\nInstagram\nTwitter\nYoutube\nLinkedin",
    "read_only": 1
   },
   {
@@ -119,7 +128,6 @@
    "default": "0",
    "fieldname": "engagement_rate",
    "fieldtype": "Float",
-   "in_list_view": 1,
    "label": "Engagement Rate %"
   },
   {
@@ -130,6 +138,7 @@
    "default": "0",
    "fieldname": "likes",
    "fieldtype": "Int",
+   "in_list_view": 1,
    "label": "Likes"
   },
   {
@@ -178,6 +187,7 @@
    "collapsible": 1,
    "fieldname": "metrics_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Detailed Metrics"
   },
   {
@@ -185,25 +195,58 @@
    "fieldtype": "Table",
    "label": "Metrics",
    "options": "Social Analytics Metric"
+  },
+  {
+   "fieldname": "column_break_xirk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_eijp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_otuk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ocgi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_bnpv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_zosz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dhjy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ugjw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ncyq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_aqez",
+   "fieldtype": "Column Break"
   }
  ],
  "hide_toolbar": 1,
  "in_create": 1,
  "links": [],
- "modified": "2025-12-24 12:56:29.157325",
+ "modified": "2026-02-05 12:31:11.982075",
  "modified_by": "Administrator",
  "module": "Frappe Social",
  "name": "Social Analytics",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "read": 1,
-   "role": "System Manager",
-   "write": 1
-  },
   {
    "create": 1,
    "delete": 1,

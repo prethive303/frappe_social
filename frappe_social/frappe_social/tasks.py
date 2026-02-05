@@ -6,10 +6,10 @@ scheduler_events = {
     "cron": {
         "* * * * *": ["frappe_social.frappe_social.tasks.publish_scheduled_posts"],
         "0 0 * * *": ["frappe_social.frappe_social.tasks.reset_rate_limit_counters"],
+        "0 */6 * * *": ["frappe_social.frappe_social.tasks.fetch_daily_analytics"],
     },
     "hourly": [
         "frappe_social.frappe_social.tasks.refresh_expiring_tokens",
-        "frappe_social.frappe_social.tasks.fetch_daily_analytics",
         "frappe_social.frappe_social.tasks.fetch_post_analytics"
     ],
 }

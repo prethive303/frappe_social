@@ -323,18 +323,18 @@ class FacebookProvider(BaseProvider):
         """
         try:
             attached_media = []
-
+    
             # Handle media files
             for media in media_files or []:
                 file_path = getattr(media, "file_url", None) or media
                 full_path = self._get_full_path(file_path)
-
+    
                 if self._is_video(file_path):
                     if len(media_files) > 1:
                         return PublishResult(
                             success=False, error_message="Only one video allowed in feed post"
                         )
-
+    
                     # Upload video directly (publishes immediately)
                     with open(full_path, "rb") as f:
                         video_resp = requests.post(
@@ -342,15 +342,28 @@ class FacebookProvider(BaseProvider):
                             files={"source": f},
                             data={"description": content or "", "access_token": page_token},
                             timeout=600,
-                        ).json()
-
-                    if "id" not in video_resp:
-                        return self._handle_error(video_resp, "Video upload failed")
-
-                    video_id = video_resp["id"]
+                        )
+                    
+                    # FIX: Check status before parsing JSON
+                    if video_resp.status_code != 200:
+                        error_text = video_resp.text or "No response body"
+                        frappe.log_error(
+                            title="Facebook Video Upload Failed",
+                            message=f"Status: {video_resp.status_code}\nResponse: {error_text}"
+                        )
+                        return PublishResult(
+                            success=False, 
+                            error_message=f"Video upload failed: {video_resp.status_code} - {error_text[:200]}"
+                        )
+                    
+                    video_data = video_resp.json()
+                    if "id" not in video_data:
+                        return self._handle_error(video_data, "Video upload failed")
+    
+                    video_id = video_data["id"]
                     post_url = f"https://www.facebook.com/{video_id}"
                     return PublishResult(success=True, post_id=video_id, post_url=post_url)
-
+    
                 # Handle images
                 with open(full_path, "rb") as f:
                     img_resp = requests.post(
@@ -358,16 +371,29 @@ class FacebookProvider(BaseProvider):
                         files={"source": f},
                         data={"published": "false", "access_token": page_token},
                         timeout=60,
-                    ).json()
-
-                if "id" not in img_resp:
-                    return self._handle_error(img_resp, "Image upload failed")
-
-                attached_media.append({"media_fbid": img_resp["id"]})
-
+                    )
+                
+                # FIX: Check status before parsing JSON
+                if img_resp.status_code != 200:
+                    error_text = img_resp.text or "No response body"
+                    frappe.log_error(
+                        title="Facebook Photo Upload Failed",
+                        message=f"Status: {img_resp.status_code}\nResponse: {error_text}"
+                    )
+                    return PublishResult(
+                        success=False,
+                        error_message=f"Image upload failed: {img_resp.status_code} - {error_text[:200]}"
+                    )
+                
+                img_data = img_resp.json()
+                if "id" not in img_data:
+                    return self._handle_error(img_data, "Image upload failed")
+    
+                attached_media.append({"media_fbid": img_data["id"]})
+    
             # Create post data
             data = {"access_token": page_token, "message": content or ""}
-
+    
             # Handle scheduling
             if scheduled_time:
                 data.update(
@@ -376,13 +402,13 @@ class FacebookProvider(BaseProvider):
                         "scheduled_publish_time": int(scheduled_time.timestamp()),
                     }
                 )
-
+    
             # Handle CTA
             cta = kwargs.get("cta")
             link = kwargs.get("link")
             url_build = kwargs.get("url_build")
             final_link = url_build if url_build else link
-
+    
             if cta and final_link:
                 cta_type = self._map_cta(cta)
                 if cta_type:
@@ -392,21 +418,46 @@ class FacebookProvider(BaseProvider):
                         )
                     else:
                         data["link"] = final_link
-
+    
             # Attach media for multi-image posts
             for i, media_item in enumerate(attached_media):
                 data[f"attached_media[{i}]"] = frappe.as_json(media_item)
-
-            # Publish post
-            post_resp = requests.post(f"{self.api_base}/{page_id}/feed", data=data, timeout=60).json()
-
-            if "id" not in post_resp:
-                return self._handle_error(post_resp, "Feed post creation failed")
-
-            post_id = post_resp["id"]
+    
+            # Publish post - FIX: Check status before parsing JSON
+            post_resp = requests.post(
+                f"{self.api_base}/{page_id}/feed", 
+                data=data, 
+                timeout=60
+            )
+            
+            # Check HTTP status first
+            if post_resp.status_code != 200:
+                error_text = post_resp.text or "No response body"
+                frappe.log_error(
+                    title="Facebook Feed Post Failed",
+                    message=f"Status: {post_resp.status_code}\nResponse: {error_text}\nRequest Data: {data}"
+                )
+                
+                # Try to parse as JSON if possible
+                try:
+                    error_json = post_resp.json()
+                    return self._handle_error(error_json, "Feed post creation failed")
+                except:
+                    return PublishResult(
+                        success=False,
+                        error_message=f"Feed post failed: {post_resp.status_code} - {error_text[:200]}"
+                    )
+            
+            # Now safe to parse JSON
+            post_data = post_resp.json()
+            
+            if "id" not in post_data:
+                return self._handle_error(post_data, "Feed post creation failed")
+    
+            post_id = post_data["id"]
             post_url = f"https://www.facebook.com/{post_id}"
             return PublishResult(success=True, post_id=post_id, post_url=post_url)
-
+    
         except Exception as e:
             frappe.log_error(title="Facebook Feed Post Error", message=f"{str(e)}\n{frappe.get_traceback()}")
             return PublishResult(success=False, error_message=str(e))

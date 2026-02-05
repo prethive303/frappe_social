@@ -15,7 +15,7 @@ def marketing_campaign_before_save(doc, method=None):
     Called via hooks.py
     """
     # Only create if new, Meta Ads checked, and no existing ID
-    if doc.is_new() and getattr(doc, "custom_is_meta_ads", False) and not getattr(doc, "custom_campaign_id", None):
+    if doc.is_new() and getattr(doc, "custom_is_meta_ads", False) and not getattr(doc, "custom_facebook_campaign_id", None):
         create_meta_campaign(doc)
 
 
@@ -28,10 +28,10 @@ def create_meta_campaign(doc):
         if not getattr(doc, "custom_is_meta_ads", False):
             return  # Skip silently if not Meta Ads
 
-        if not getattr(doc, "custom_select_facebook", None):
-            frappe.throw(_("Select Facebook Ad Account is required"))
-        # if not getattr(doc, "custom_select_ad_account", None):
-        #     frappe.throw(_("Select Ad Account is required"))
+        # if not getattr(doc, "custom_select_facebook", None):
+        #     frappe.throw(_("Select Facebook Ad Account is required"))
+        if not getattr(doc, "custom_select_facebook_ad_account", None):
+            frappe.throw(_("Select Ad Account is required"))
         if not getattr(doc, "custom_campaign_objective", None):
             frappe.throw(_("Campaign Objective is required"))
 
@@ -42,14 +42,14 @@ def create_meta_campaign(doc):
         # ad_account_name, ad_account_id = selected_ad_account.rsplit(' - ', 1)
         # ad_account_id = ad_account_id.strip()
         
-        integration = frappe.get_doc("Ads Account Integration", doc.custom_select_facebook)
+        # integration = frappe.get_doc("Ads Account Integration", doc.custom_select_facebook)
         
-        if not integration.ad_account_id:
-            frappe.throw(_("Selected account does not have an Ad Account ID configured"))
+        # if not integration.ad_account_id:
+        #     frappe.throw(_("Selected account does not have an Ad Account ID configured"))
 
         
         # Initialize provider
-        provider = MetaAdsProvider(doc.custom_select_facebook)
+        provider = MetaAdsProvider(doc.custom_select_facebook_ad_account)
         # provider.account_id = ad_account_id  # Set ad_account_id on provider
 
         # Build payload
@@ -62,7 +62,7 @@ def create_meta_campaign(doc):
 
         if result.success:
             # Store the returned campaign ID (PublishResult uses post_id)
-            doc.custom_campaign_id = result.campaign_id
+            doc.custom_facebook_campaign_id = result.campaign_id
             logger.info(f"✓ Campaign created successfully on Meta: {result.campaign_id}")
             frappe.msgprint(
                 _("Campaign created successfully on Meta Ads. ID: {0}").format(result.campaign_id),
@@ -75,7 +75,7 @@ def create_meta_campaign(doc):
 
     except frappe.DoesNotExistError:
         frappe.throw(
-            _("Facebook Integration '{0}' does not exist or is invalid.").format(doc.custom_select_facebook)
+            _("Facebook Integration '{0}' does not exist or is invalid.").format(doc.custom_select_facebook_ad_account)
         )
     except ValueError as e:
         frappe.throw(_("Invalid configuration: {0}").format(str(e)))
@@ -127,7 +127,7 @@ def build_campaign_payload(doc) -> dict:
 
     # Build final payload - only send what Meta API expects
     payload = {
-        "name": doc.custom_campaign_name[:400],  # Use doctype name; Meta max 400 chars
+        "name": doc.custom_campaign_name,
         "objective": objective,
         "status": "ACTIVE" if doc.custom_is_meta_ads else "PAUSED",  # Recommended: start PAUSED for safety
         "buying_type": buying_type,

@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Macrobian and Contributors
+# Copyright (c) 2026, Macrobian and Contributors
 # See license.txt
 
 # import frappe

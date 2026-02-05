@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_copy": 1,
  "creation": "2025-12-15 12:16:23.649490",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -17,7 +18,6 @@
   "column_break_twitter",
   "twitter_api_key",
   "twitter_api_secret",
-  "twitter_tier_section",
   "twitter_tier",
   "twitter_posts_today",
   "twitter_daily_limit",
@@ -42,7 +42,6 @@
   "youtube_client_secret",
   "column_break_youtube",
   "youtube_api_key",
-  "youtube_quota_section",
   "youtube_quota_limit",
   "youtube_quota_used",
   "youtube_quota_reset_date"
@@ -87,7 +86,7 @@
    "collapsible": 1,
    "fieldname": "twitter_section",
    "fieldtype": "Section Break",
-   "label": "X (Twitter) API Credentials"
+   "label": "X (Twitter) API Credentials (Tier & Limits)"
   },
   {
    "fieldname": "twitter_instructions",
@@ -119,12 +118,6 @@
    "label": "API Secret (OAuth 1.0a)"
   },
   {
-   "collapsible": 1,
-   "fieldname": "twitter_tier_section",
-   "fieldtype": "Section Break",
-   "label": "Twitter Tier & Limits"
-  },
-  {
    "default": "Free",
    "fieldname": "twitter_tier",
    "fieldtype": "Select",
@@ -135,6 +128,7 @@
    "default": "0",
    "fieldname": "twitter_posts_today",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Posts Today",
    "read_only": 1
   },
@@ -142,6 +136,7 @@
    "default": "17",
    "fieldname": "twitter_daily_limit",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Daily Post Limit",
    "read_only": 1
   },
@@ -191,12 +186,12 @@
   {
    "fieldname": "meta_app_id",
    "fieldtype": "Data",
-   "label": "Facebook App ID"
+   "label": "Meta App ID"
   },
   {
    "fieldname": "meta_app_secret",
    "fieldtype": "Password",
-   "label": "Facebook App Secret"
+   "label": "Meta App Secret"
   },
   {
    "fieldname": "column_break_meta",
@@ -212,12 +207,14 @@
    "collapsible": 1,
    "fieldname": "instagram_section",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Instagram Limits"
   },
   {
    "default": "0",
    "fieldname": "instagram_posts_today",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Posts Today",
    "read_only": 1
   },
@@ -225,6 +222,7 @@
    "default": "25",
    "fieldname": "instagram_daily_limit",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Daily Limit (Hard: 25)",
    "read_only": 1
   },
@@ -232,7 +230,7 @@
    "collapsible": 1,
    "fieldname": "youtube_section",
    "fieldtype": "Section Break",
-   "label": "YouTube API Credentials"
+   "label": "Google (YouTube) API Credentials and Quota Tracking"
   },
   {
    "fieldname": "youtube_instructions",
@@ -260,15 +258,10 @@
    "label": "API Key (optional)"
   },
   {
-   "collapsible": 1,
-   "fieldname": "youtube_quota_section",
-   "fieldtype": "Section Break",
-   "label": "YouTube Quota Tracking"
-  },
-  {
    "default": "10000",
    "fieldname": "youtube_quota_limit",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Daily Quota Limit",
    "read_only": 1
   },
@@ -276,21 +269,24 @@
    "default": "0",
    "fieldname": "youtube_quota_used",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Quota Used",
    "read_only": 1
   },
   {
    "fieldname": "youtube_quota_reset_date",
    "fieldtype": "Date",
+   "hidden": 1,
    "label": "Quota Reset Date",
    "read_only": 1
   }
  ],
+ "hide_toolbar": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-12-23 21:30:28.836976",
+ "modified": "2026-02-04 21:07:20.094344",
  "modified_by": "Administrator",
- "module": "Frappe Social",
+ "module": "API Credentials",
  "name": "Social Settings",
  "owner": "Administrator",
  "permissions": [

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorization Successful</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+        }
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="checkmark">✓</div>
+        <h1>Authorization Successful</h1>
+        <p>{{ message }}</p>
+        <p style="font-size: 14px; opacity: 0.8;">This window will close automatically...</p>
+    </div>
+
+    <script>
+        (function() {
+            // Send message to parent window
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        type: 'oauth_complete',
+                        status: '{{ status }}',
+                        integration: '{{ integration_name }}',
+                        platform: '{{ platform }}'
+                    }, window.location.origin);
+                    console.log('Message sent to parent window');
+                } catch (e) {
+                    console.error('Failed to send message:', e);
+                }
+            } else {
+                console.warn('No parent window found');
+            }
+
+            // Close popup after a short delay
+            setTimeout(function() {
+                window.close();
+                
+                // Fallback: if window.close() doesn't work, redirect to main page
+                setTimeout(function() {
+                    if (!window.closed) {
+                        window.location.href = '/app/social-integration/{{ integration_name }}';
+                    }
+                }, 500);
+            }, 1500);
+        })();
+    </script>
+</body>
+</html>
