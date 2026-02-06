@@ -408,8 +408,8 @@ class MetaAdsProvider(BaseProvider):
             return False
         
         # Check URL is not too long
-        if len(url) > 2048:
-            return False
+        # if len(url) > 2048:
+        #     return False
         
         return True
 

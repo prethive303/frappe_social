@@ -74,13 +74,13 @@ function load_facebook_pages(frm) {
             name: frm.doc.campaign
         },
         callback: function(r) {
-            if (r.message && r.message.custom_select_facebook) {
+            if (r.message && r.message.custom_select_facebook_ad_account) {
                 // Get the Ads Account Integration document
                 frappe.call({
                     method: 'frappe.client.get',
                     args: {
                         doctype: 'Ads Account Integration',
-                        name: r.message.custom_select_facebook,
+                        name: r.message.custom_select_facebook_ad_account,
                         fields: ['fb_pages']
                     },
                     callback: function(res) {

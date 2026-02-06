@@ -16,38 +16,38 @@ function toggleAdFields(frm) {
     });
     
     // Toggle normal post fields (hide when in ad mode)
-    // const postFields = ['account'];
-    // postFields.forEach(f => {
-    //     frm.toggle_display(f, !isAdMode(frm));
-    //     frm.toggle_reqd(f, !isAdMode(frm));
-    // });
+    const postFields = ['account'];
+    postFields.forEach(f => {
+        frm.toggle_display(f, !isAdMode(frm));
+        frm.toggle_reqd(f, !isAdMode(frm));
+    });
 
     // Campaign is always visible but only required for ads
-    // frm.toggle_reqd('campagin', isAdMode(frm));
+    frm.toggle_reqd('campagin', isAdMode(frm));
 }
 
-// function validateAdBeforePublish(frm) {
-//     if (!isAdMode(frm)) return true;
+function validateAdBeforePublish(frm) {
+    if (!isAdMode(frm)) return true;
 
-//     const required = {
-//         campagin: 'Campaign',
-//         select_ad_account: 'Ad Account',
-//         select_ad_set: 'Ad Set',
-//         selected_facebook_page: 'Facebook Page'
-//     };
+    const required = {
+        campagin: 'Campaign',
+        select_ad_account: 'Ad Account',
+        select_ad_set: 'Ad Set',
+        selected_facebook_page: 'Facebook Page'
+    };
 
-//     for (let field in required) {
-//         if (!frm.doc[field]) {
-//             frappe.msgprint({
-//                 title: __('Missing Field'),
-//                 indicator: 'red',
-//                 message: __(`${required[field]} is required to publish an Ad`)
-//             });
-//             return false;
-//         }
-//     }
-//     return true;
-// }
+    for (let field in required) {
+        if (!frm.doc[field]) {
+            frappe.msgprint({
+                title: __('Missing Field'),
+                indicator: 'red',
+                message: __(`${required[field]} is required to publish an Ad`)
+            });
+            return false;
+        }
+    }
+    return true;
+}
 
 frappe.ui.form.on('Social Post', {
 
@@ -574,7 +574,7 @@ frappe.ui.form.on('Social Post', {
                 args: {
                     doctype: 'Marketing Campaign',
                     name: frm.doc.campagin,
-                    fields: ['custom_select_facebook', 'custom_is_meta_ads', 'custom_campaign_id']
+                    fields: ['custom_select_facebook_ad_account', 'custom_is_meta_ads', 'custom_facebook_campaign_id']
                 },
                 callback: function (r) {
                     if (r.message) {
@@ -590,8 +590,8 @@ frappe.ui.form.on('Social Post', {
                                 return;
                             }
 
-                            if (r.message.custom_select_facebook) {
-                                frm.set_value('select_ad_account', r.message.custom_select_facebook);
+                            if (r.message.custom_select_facebook_ad_account) {
+                                frm.set_value('select_ad_account', r.message.custom_select_facebook_ad_account);
                             } else {
                                 frappe.msgprint({
                                     title: __('Warning'),

@@ -41,16 +41,16 @@ class AdSet(Document):
             campaign_doc = frappe.get_doc("Marketing Campaign", self.campaign)
             
             logger.info(f"Campaign doc: {campaign_doc.name}")
-            logger.info(f"Campaign ID: {campaign_doc.custom_campaign_id}")
-            logger.info(f"Account: {campaign_doc.custom_select_facebook}")
+            logger.info(f"Campaign ID: {campaign_doc.custom_facebook_campaign_id}")
+            logger.info(f"Account: {campaign_doc.custom_select_facebook_ad_account}")
             
-            if not campaign_doc.custom_campaign_id:
+            if not campaign_doc.custom_facebook_campaign_id:
                 frappe.throw(_("Selected campaign has no Meta campaign ID"))
-            if not campaign_doc.custom_select_facebook:
+            if not campaign_doc.custom_select_facebook_ad_account:
                 frappe.throw(_("Selected campaign has no associated account"))
     
             # Initialize provider
-            provider = MetaAdsProvider(campaign_doc.custom_select_facebook)
+            provider = MetaAdsProvider(campaign_doc.custom_select_facebook_ad_account)
     
             # Build payload
             payload = self._build_ad_set_payload(campaign_doc)
@@ -110,7 +110,7 @@ class AdSet(Document):
 
         payload = {
             "name": self.ad_set_name,
-            "campaign_id": campaign_doc.custom_campaign_id,
+            "campaign_id": campaign_doc.custom_facebook_campaign_id,
             "daily_budget": int(float(self.daily_budget or 0) * 100),  # MUST be in cents!
             "billing_event": self.billing_event,
             "optimization_goal": optimization_goal,
